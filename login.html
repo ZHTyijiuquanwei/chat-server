@@ -1,46 +1,43 @@
 <!DOCTYPE html>
-<html lang="zh-HK">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录</title>
+    <title>ZHT聊天室 - 登录</title>
     <style>
-        *{box-sizing:border-box;font-family:system-ui}
-        body{background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}
-        .box{background:white;padding:30px;width:360px;border-radius:12px;box-shadow:0 2px 12px #0000001a}
-        h2{text-align:center;margin-top:0}
-        input{width:100%;padding:12px;margin:8px 0;border:1px solid #ddd;border-radius:6px;font-size:16px}
-        button{width:100%;padding:12px;background:#2563eb;color:white;border:none;border-radius:6px;font-size:16px;cursor:pointer;margin-top:10px}
-        button:hover{background:#1d4ed8}
-        .tip{margin-top:16px;text-align:center;font-size:14px}
+        body{background:#f0f4f8;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;font-size:18px;}
+        .box{width:90%;max-width:420px;background:white;padding:30px;border-radius:12px;box-shadow:0 2px 12px #0000001c;}
+        h1{text-align:center;margin-bottom:30px;color:#1a2535;font-size:26px;}
+        input{width:100%;padding:14px;margin:10px 0;border:1px solid #bbb;border-radius:6px;font-size:17px;}
+        button{width:100%;padding:14px;background:#2563eb;color:white;border:none;border-radius:6px;margin-top:10px;font-size:18px;}
+        .link{text-align:center;margin-top:18px;color:#2563eb;cursor:pointer;}
     </style>
 </head>
 <body>
 <div class="box">
-    <h2>账号登录</h2>
-    <input type="email" id="email" placeholder="邮箱">
-    <input type="password" id="pwd" placeholder="密码">
+    <h1>ZHT聊天室</h1>
+    <input id="email" placeholder="邮箱">
+    <input id="pwd" type="password" placeholder="密码">
     <button onclick="login()">登录</button>
-    <div class="tip">没有账号？<a href="register.html">去注册</a></div>
+    <div class="link" onclick="location.href='register.html'">没有账号？去注册</div>
 </div>
 <script>
-const baseUrl = window.location.origin;
-async function login(){
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('pwd').value;
-    const res = await fetch(baseUrl+'/api/login',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({email,password})
-    });
-    const data = await res.json();
-    if(data.success){
-        localStorage.setItem('user',JSON.stringify(data.user));
-        location.href='index.html';
-    }else{
-        alert(data.msg);
+    async function login(){
+        let email = document.getElementById("email").value;
+        let pass = document.getElementById("pwd").value;
+        let res = await fetch("/api/login",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({email:email,password:pass})
+        });
+        let data = await res.json();
+        if(data.success){
+            localStorage.setItem("chatUser",JSON.stringify(data.user));
+            location.href="index.html";
+        }else{
+            alert(data.msg);
+        }
     }
-}
 </script>
 </body>
 </html>
