@@ -3,41 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ZHT聊天室 - 登录</title>
+    <title>ZHT聊天室</title>
     <style>
-        body{background:#f0f4f8;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;font-size:18px;}
-        .box{width:90%;max-width:420px;background:white;padding:30px;border-radius:12px;box-shadow:0 2px 12px #0000001c;}
-        h1{text-align:center;margin-bottom:30px;color:#1a2535;font-size:26px;}
-        input{width:100%;padding:14px;margin:10px 0;border:1px solid #bbb;border-radius:6px;font-size:17px;}
-        button{width:100%;padding:14px;background:#2563eb;color:white;border:none;border-radius:6px;margin-top:10px;font-size:18px;}
-        .link{text-align:center;margin-top:18px;color:#2563eb;cursor:pointer;}
+        *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
+        body{display:flex;height:100vh;overflow:hidden;}
+        .hamburger{display:none;font-size:28px;padding:12px;cursor:pointer;}
+        .sidebar{width:260px;background:#1e293b;color:white;display:flex;flex-direction:column;transition:0.3s;z-index:99;}
+        .sidebar h2{padding:16px;text-align:center;border-bottom:1px solid #334155;}
+        .user-info{padding:14px;border-bottom:1px solid #334155;font-size:15px;}
+        .close-side{display:none;text-align:right;padding:10px;font-size:24px;cursor:pointer;}
+        .main{flex:1;display:flex;flex-direction:column;}
+        .chat-area{flex:1;padding:16px;overflow-y:auto;background:#f8fafc;}
+        .msg{margin:8px 0;padding:10px;border-radius:8px;max-width:75%;word-wrap:break-word;}
+        .msg-self{background:#2563eb;color:white;margin-left:auto;}
+        .msg-other{background:#e2e8f0;color:#111;}
+        .input-bar{display:flex;padding:12px;border-top:1px solid #ddd;gap:8px;}
+        #msgInput{flex:1;padding:12px;border:1px solid #bbb;border-radius:8px;font-size:16px;}
+        #sendBtn{padding:12px 20px;background:#2563eb;color:white;border:none;border-radius:8px;cursor:pointer;}
+
+        @media(max-width:768px){
+            .hamburger{display:block;background:#1e293b;color:white;}
+            .sidebar{position:fixed;height:100vh;left:-260px;top:0;}
+            .sidebar.open{left:0;}
+            .close-side{display:block;}
+        }
     </style>
 </head>
 <body>
-<div class="box">
-    <h1>ZHT聊天室</h1>
-    <input id="email" placeholder="邮箱">
-    <input id="pwd" type="password" placeholder="密码">
-    <button onclick="login()">登录</button>
-    <div class="link" onclick="location.href='register.html'">没有账号？去注册</div>
-</div>
+    <div class="hamburger" onclick="openSide()">☰</div>
+    <div class="sidebar" id="sideBar">
+        <div class="close-side" onclick="closeSide()">✕</div>
+        <h2>聊天室</h2>
+        <div class="user-info" id="userBox"></div>
+    </div>
+    <div class="main">
+        <div class="chat-area" id="chatBox"></div>
+        <div class="input-bar">
+            <input type="text" id="msgInput" placeholder="输入消息">
+            <button id="sendBtn">发送</button>
+        </div>
+    </div>
+
 <script>
-    async function login(){
-        let email = document.getElementById("email").value;
-        let pass = document.getElementById("pwd").value;
-        let res = await fetch("/api/login",{
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({email:email,password:pass})
-        });
-        let data = await res.json();
-        if(data.success){
-            localStorage.setItem("chatUser",JSON.stringify(data.user));
-            location.href="index.html";
-        }else{
-            alert(data.msg);
-        }
+let ws;
+let user;
+window.onload=function(){
+    user=JSON.parse(localStorage.getItem("chatUser"));
+    if(!user){
+        location.href="login.html";
+        return;
     }
+    document.getElementById("userBox").innerText=`昵称：${user.nickname}\nID：${user.zhtid}`;
+    connectWs();
+}
+
+function connectWs(){
+    const protocol=location.protocol==="https:"?"wss://":"ws://";
+    ws=new WebSocket(protocol+location.host);
+    ws.onmessage=e=>{
+        const data=JSON.parse(e.data);
+        addMessage(data.nick,data.text,data.zhtid===user.zhtid);
+    }
+}
+
+function addMessage(name,text,isSelf){
+    const div=document.createElement("div");
+    div.className="msg "+(isSelf?"msg-self":"msg-other");
+    div.innerHTML=`<strong>${name}</strong><br>${text}`;
+    document.getElementById("chatBox").appendChild(div);
+    document.getElementById("chatBox").scrollTop=document.getElementById("chatBox").scrollHeight;
+}
+
+document.getElementById("sendBtn").onclick=sendMsg;
+document.getElementById("msgInput").addEventListener("keydown",e=>{
+    if(e.key==="Enter")sendMsg();
+})
+
+function sendMsg(){
+    const text=document.getElementById("msgInput").value.trim();
+    if(!text)return;
+    ws.send(JSON.stringify({nick:user.nickname,zhtid:user.zhtid,text:text}));
+    document.getElementById("msgInput").value="";
+}
+
+function openSide(){document.getElementById("sideBar").classList.add("open");}
+function closeSide(){document.getElementById("sideBar").classList.remove("open");}
 </script>
 </body>
 </html>
