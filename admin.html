@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员后台</title>
+    <style>
+        body{padding:20px;font-family:system-ui}
+        table{width:100%;border-collapse:collapse;margin-top:20px}
+        th,td{border:1px solid #ccc;padding:10px;text-align:left}
+        th{background:#eee}
+    </style>
+</head>
+<body>
+    <h1>全部用户列表</h1>
+    <table id="table">
+        <thead>
+            <tr><th>ID</th><th>ZHT‑ID</th><th>邮箱</th><th>昵称</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+<script>
+const baseUrl = window.location.origin;
+(async()=>{
+    const res = await fetch(baseUrl+'/api/admin/userlist');
+    const list = await res.json();
+    const tbody = document.querySelector('#table tbody');
+    list.forEach(u=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${u.id}</td><td>${u.zhtid}</td><td>${u.email}</td><td>${u.nickname}</td>`;
+        tbody.appendChild(tr);
+    })
+})();
+</script>
+</body>
+</html>
