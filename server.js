@@ -1,106 +1,108 @@
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
-const SibApiV3Sdk = require('sib-api-v3-sdk');
-const path = require("path");
+const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
+const cors = require('cors');
 
 const app = express();
-// 创建http服务器（同时支持网页+WebSocket聊天）
-const server = http.createServer(app);
-//开启WebSocket聊天室
-const wss = new WebSocket.Server({ server });
-
-//====管理员账号设置====
-const ADMIN_PASSWORD = "ZHT666888";
-const ADMIN_SECRET_ANSWER = "小明";
-
-const apiKey = process.env.BREVO_API_KEY;
-const fromEmail = process.env.FROM_EMAIL;
-const fromName = process.env.FROM_NAME;
-
-let defaultClient = SibApiV3Sdk.ApiClient.instance;
-let apiKeyAuth = defaultClient.authentications['api-key'];
-apiKeyAuth.apiKey = apiKey;
-
-//托管html网页文件（index.html聊天室、管理员页面不会404）
-app.use(express.static(__dirname));
+app.use(cors());
 app.use(express.json());
+app.use(express.static('./'));
 
-//主页自动跳转到聊天室
-app.get('/', (req, res) => {
-    res.redirect("/index.html");
-});
+// 从Render环境变量读取，不要把密码写进代码
+const DATABASE_URL = process.env.DATABASE_URL;
 
-//管理员登录接口
-app.post('/admin-login', (req,res)=>{
-    const {password,secretAnswer}=req.body;
-    if(password===ADMIN_PASSWORD && secretAnswer===ADMIN_SECRET_ANSWER){
-        res.json({success:true,token:"admin-ok-888",msg:"登录成功，获得管理员权限"});
-    }else{
-        res.json({success:false,msg:"密码或密保答案错误"});
-    }
-})
-
-//发送验证码接口（保留原本邮件功能）
-app.post('/send-code', async (req, res) => {
-    try {
-        const { toEmail, code } = req.body;
-        if(!toEmail || !code){
-            return res.json({ success: false, msg: "缺少邮箱或者验证码参数" });
-        }
-        let apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-        let sendSmtpEmail = {
-            sender: {name: fromName,email: fromEmail},
-            to: [{email: toEmail}],
-            subject: "你的验证码",
-            htmlContent: `<p>你的验证码：<strong>${code}</strong></p>`
-        };
-        await apiInstance.sendTransacEmail(sendSmtpEmail);
-        console.log("邮件发送成功");
-        res.json({ success: true, msg: "验证码发送成功" });
-    } catch (err) {
-        console.error("邮件发送出错：", err);
-        res.json({ success: false, msg: "发送失败", error: err.message });
-    }
-});
-
-//=====多人聊天室WebSocket广播代码=====
-//广播给所有在线人
-function broadcast(msg){
-    wss.clients.forEach(client=>{
-        if(client.readyState===WebSocket.OPEN){
-            client.send(JSON.stringify(msg));
-        }
-    })
+if(!DATABASE_URL){
+    console.error("❌ 找不到 DATABASE_URL 环境变量！请到Render后台添加");
+    process.exit(1);
 }
 
-wss.on('connection', (ws)=>{
-    console.log("一位用户进入聊天室");
-    //上线通知所有人
-    broadcast({type:"system",text:"有新用户加入聊天室！"});
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
+async function initDB(){
+    await pool.query(`
+    CREATE TABLE IF NOT EXISTS users(
+        id SERIAL PRIMARY KEY,
+        zhtid TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        nickname TEXT,
+        avatar TEXT
+    );
+    CREATE TABLE IF NOT EXISTS friends(
+        id SERIAL PRIMARY KEY,
+        user1 TEXT,
+        user2 TEXT
+    );
+    `);
+    console.log("✅数据库表初始化完成");
+}
+initDB();
+
+async function createNewZhtId(){
+    const res = await pool.query('SELECT COUNT(*) FROM users');
+    const num = parseInt(res.rows[0].count)+10001;
+    return "ZHT‑"+num;
+}
+
+//注册接口
+app.post('/api/register',async(req,res)=>{
+    try{
+        const {email,password,nickname} = req.body;
+        const hashPass = await bcrypt.hash(password,10);
+        const newZht = await createNewZhtId();
+        await pool.query(`INSERT INTO users(zhtid,email,password,nickname) VALUES($1,$2,$3,$4)`,[newZht,email,hashPass,nickname]);
+        res.json({success:true,zhtid:newZht});
+    }catch(e){
+        res.json({success:false,msg:"邮箱已经被注册"});
+    }
+});
+
+//登录接口
+app.post('/api/login',async(req,res)=>{
+    const {email,password}=req.body;
+    const result = await pool.query('SELECT * FROM users WHERE email=$1',[email]);
+    if(result.rows.length===0) return res.json({success:false,msg:"账号不存在"});
+    const user = result.rows[0];
+    const ok = await bcrypt.compare(password,user.password);
+    if(!ok) return res.json({success:false,msg:"密码错误"});
+    res.json({success:true,user:{zhtid:user.zhtid,email:user.email,nickname:user.nickname,avatar:user.avatar}});
+});
+
+//管理员获取全部用户列表
+app.get('/api/admin/userlist',async(req,res)=>{
+    const all = await pool.query('SELECT * FROM users');
+    res.json(all.rows);
+});
+
+//管理员编辑ZHT‑ID
+app.post('/api/admin/setzhtid',async(req,res)=>{
+    const {oldZht,newZht}=req.body;
+    try{
+        await pool.query('UPDATE users SET zhtid=$1 WHERE zhtid=$2',[newZht,oldZht]);
+        res.json({success:true});
+    }catch(e){
+        res.json({success:false,msg:"ZHT‑ID重复，修改失败"});
+    }
+});
+
+const server = http.createServer(app);
+const wss = new WebSocket.Server({server});
+wss.on('connection',(ws)=>{
     ws.on('message',(raw)=>{
-        try{
-            let data=JSON.parse(raw);
-            //把消息转发给全部在线人
-            broadcast({
-                type:"chat",
-                username:data.name,
-                text:data.msg,
-                time:new Date().toLocaleTimeString()
-            })
-        }catch(e){
-            console.log("消息解析失败");
-        }
-    })
-
-    ws.on('close',()=>{
-        console.log("一位用户离开聊天室");
-        broadcast({type:"system",text:"一位用户离开了聊天室"});
+        wss.clients.forEach(client=>{
+            if(client.readyState === WebSocket.OPEN){
+                client.send(raw);
+            }
+        })
     })
 })
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`🚀服务器启动成功`);
+server.listen(PORT,()=>{
+    console.log("🚀聊天室+数据库后端启动成功");
 });
