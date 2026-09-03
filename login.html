@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录</title>
+    <style>
+        *{box-sizing:border-box;font-family:system-ui}
+        body{background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}
+        .box{background:white;padding:30px;width:360px;border-radius:12px;box-shadow:0 2px 12px #0000001a}
+        h2{text-align:center;margin-top:0}
+        input{width:100%;padding:12px;margin:8px 0;border:1px solid #ddd;border-radius:6px;font-size:16px}
+        button{width:100%;padding:12px;background:#2563eb;color:white;border:none;border-radius:6px;font-size:16px;cursor:pointer;margin-top:10px}
+        button:hover{background:#1d4ed8}
+        .tip{margin-top:16px;text-align:center;font-size:14px}
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>账号登录</h2>
+    <input type="email" id="email" placeholder="邮箱">
+    <input type="password" id="pwd" placeholder="密码">
+    <button onclick="login()">登录</button>
+    <div class="tip">没有账号？<a href="register.html">去注册</a></div>
+</div>
+<script>
+const baseUrl = window.location.origin;
+async function login(){
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('pwd').value;
+    const res = await fetch(baseUrl+'/api/login',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email,password})
+    });
+    const data = await res.json();
+    if(data.success){
+        localStorage.setItem('user',JSON.stringify(data.user));
+        location.href='index.html';
+    }else{
+        alert(data.msg);
+    }
+}
+</script>
+</body>
+</html>
