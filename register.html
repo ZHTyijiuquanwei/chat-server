@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册账号</title>
+    <style>
+        *{box-sizing:border-box;font-family:system-ui}
+        body{background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}
+        .box{background:white;padding:30px;width:360px;border-radius:12px;box-shadow:0 2px 12px #0000001a}
+        h2{text-align:center;margin-top:0}
+        input{width:100%;padding:12px;margin:8px 0;border:1px solid #ddd;border-radius:6px;font-size:16px}
+        button{width:100%;padding:12px;background:#2563eb;color:white;border:none;border-radius:6px;font-size:16px;cursor:pointer;margin-top:10px}
+        button:hover{background:#1d4ed8}
+        .tip{margin-top:16px;text-align:center;font-size:14px}
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>新用户注册</h2>
+    <input type="email" id="email" placeholder="邮箱">
+    <input type="password" id="pwd" placeholder="密码">
+    <input type="text" id="nick" placeholder="昵称">
+    <button onclick="register()">立即注册</button>
+    <div class="tip">已有账号？<a href="login.html">前往登录</a></div>
+</div>
+<script>
+const baseUrl = window.location.origin;
+async function register(){
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('pwd').value;
+    const nickname = document.getElementById('nick').value;
+    const res = await fetch(baseUrl+'/api/register',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email,password,nickname})
+    });
+    const data = await res.json();
+    if(data.success){
+        alert(`注册成功！你的ZHT‑ID：${data.zhtid}`);
+        location.href='login.html';
+    }else{
+        alert(data.msg);
+    }
+}
+</script>
+</body>
+</html>
