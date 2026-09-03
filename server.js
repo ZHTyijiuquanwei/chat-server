@@ -55,14 +55,14 @@ async function initDB() {
 }
 initDB();
 
-// ZHT‑1、ZHT‑2，从1开始编号
+//账号ID从 ZHT‑1 开始
 async function createNewZhtId() {
     const res = await pool.query('SELECT COUNT(*) FROM users');
     const num = parseInt(res.rows[0].count) + 1;
     return "ZHT‑" + num;
 }
 
-// 发送验证码 Brevo接口
+//发送Brevo邮箱验证码
 app.post('/api/sendcode', async (req, res) => {
     try {
         const { email } = req.body;
@@ -74,9 +74,8 @@ app.post('/api/sendcode', async (req, res) => {
         ON CONFLICT(email) DO UPDATE SET code=$2,expire_time=$3`,
             [email, code, expire]);
 
-        // ==========这里！！把引号内邮箱换成你Brevo验证过的发件邮箱==========
         await axios.post("https://api.brevo.com/v3/smtp/email", {
-            sender: { name: "ZHT聊天室", email: "你的验证邮箱@xxx.com" },
+            sender: { name: "ZHT聊天室", email: "horuschu0116@outlook.com" },
             to: [{ email: email }],
             subject: "ZHT聊天室注册验证码",
             htmlContent: `<p>你的注册验证码：<strong>${code}</strong></p><p>5分钟内有效</p>`
@@ -94,7 +93,7 @@ app.post('/api/sendcode', async (req, res) => {
     }
 })
 
-//注册接口 验证码校验
+//注册接口（验证码校验）
 app.post('/api/register', async (req, res) => {
     try {
         const { email, password, nickname, code } = req.body;
@@ -123,7 +122,7 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-//登录
+//登录接口
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     const result = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
@@ -137,13 +136,13 @@ app.post('/api/login', async (req, res) => {
     res.json({ success: true, user: { zhtid: user.zhtid, email: user.email, nickname: user.nickname, avatar: user.avatar } });
 });
 
-//获取用户列表
+//管理员获取全部用户列表
 app.get('/api/admin/userlist', async (req, res) => {
     const all = await pool.query('SELECT * FROM users');
     res.json(all.rows);
 });
 
-//修改ID
+//修改用户ID接口
 app.post('/api/admin/setzhtid', async (req, res) => {
     const { oldZht, newZht } = req.body;
     try {
